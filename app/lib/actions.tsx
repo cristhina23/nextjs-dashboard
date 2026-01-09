@@ -133,3 +133,41 @@ export async function authenticate(
     throw error;
   }
 }
+
+const UpdateUser = z.object({
+  name: z.string().min(1, { message: 'Name is required.' }),
+  email: z.string().email({ message: 'Invalid email address.' }),
+});
+
+export async function updateUser(
+  id: string,
+  prevState: State,
+  formData: FormData,
+) {
+  const validatedFields = UpdateUser.safeParse({
+    name: formData.get('name'),
+    email: formData.get('email'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Update Profile.',
+    };
+  }
+
+  const { name, email } = validatedFields.data;
+
+  try {
+    await sql`
+      UPDATE users
+      SET name = ${name}, email = ${email}
+      WHERE id = ${id}
+    `;
+  } catch (error) {
+    return { message: 'Database Error: Failed to Update Profile.' };
+  }
+
+  revalidatePath('/dashboard/profile');
+  return { message: 'Profile Updated Successfully' };
+}
